@@ -1,80 +1,49 @@
+locals {
+  private_subnet_tags = {
+    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
+    "kubernetes.io/role/internal-elb" = "1"
+  }
+  public_subnet_tags = {
+    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
+    "kubernetes.io/role/elb" = "1"
+  }
+}
+
 module "vpc" {
   source = "github.com/CryptoManufaktur-io/terraform-aws-vpc.git?ref=v3.13.0"
 
-  name = "chain-link"
-  cidr = "10.21.0.0/16"
+  name = var.vpc_name
+  cidr = var.cidr
 
-  azs             = ["us-east-2a", "us-east-2b", "us-east-2c"]
-  private_subnets = ["10.21.1.0/24", "10.21.2.0/24", "10.21.3.0/24"]
-  public_subnets  = ["10.21.4.0/24", "10.21.5.0/24", "10.21.6.0/24"]
-  database_subnets    = ["10.21.21.0/24", "10.21.22.0/24","10.21.23.0/24"]
-  create_database_subnet_group           = true
-  create_database_subnet_route_table     = true
-  create_database_internet_gateway_route = true
-  single_nat_gateway = true
-  enable_nat_gateway = true
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-  //enable_vpn_gateway = true
-  private_subnet_tags = {
-    "kubernetes.io/cluster/chain-link-k8s" = "shared"
-    "kubernetes.io/role/internal-elb" = "1"
-  }
+  azs             = var.azs
+  private_subnets = var.private_subnets
+  public_subnets  = var.public_subnets
+  database_subnets    = var.database_subnets
+  create_database_subnet_group           = var.create_database_subnet_group
+  create_database_subnet_route_table     = var.create_database_nat_gateway_route 
+  create_database_internet_gateway_route = var.create_database_internet_gateway_route
+  single_nat_gateway = var.single_nat_gateway
+  enable_nat_gateway = var.enable_nat_gateway
+  enable_dns_hostnames = var.enable_dns_hostnames
+  enable_dns_support   = var.enable_dns_support
+  private_subnet_tags = merge(var.private_subnet_tags,local.private_subnet_tags)
   
-  public_subnet_tags = {
-    "kubernetes.io/cluster/chain-link-k8s" = "shared"
-    "kubernetes.io/role/elb" = "1"
-  }
-  tags = {
-    Terraform = "true"
-    Environment = "test"
-    Product   = "chain-link"
-  }
+  public_subnet_tags = merge(var.public_subnet_tags,local.public_subnet_tags)
+  tags = var.tags
 }
 
 
 resource "aws_kms_key" "eks" {
   description             = "KMS key for Encrypting EKS secrets"
-  deletion_window_in_days = 10
+  deletion_window_in_days = var.deletion_window_in_days
 }
 
 module "eks" {
   source = "github.com/CryptoManufaktur-io/terraform-aws-eks.git?ref=v18.10.0"
-  cluster_security_group_additional_rules = {one = {
-      description                = "Cluster API to VPC"
-      protocol                   = "tcp"
-      from_port                  = 443
-      to_port                    = 443
-      type                       = "egress"
-      cidr_blocks                = ["10.21.0.0/16"]
-  },
-  two = {
-      description                = "VPC to Cluster API"
-      protocol                   = "tcp"
-      from_port                  = 443
-      to_port                    = 443
-      type                       = "ingress"
-      cidr_blocks                = ["10.21.0.0/16"]
-  }}
-  node_security_group_additional_rules = {
-      one = {
-      description                = "worker node to VPC ssh"
-      protocol                   = "tcp"
-      from_port                  = 22
-      to_port                    = 22
-      type                       = "egress"
-      cidr_blocks                = ["10.21.0.0/16"]
-  },
-  two = {
-      description                = "VPC to Woker ssh"
-      protocol                   = "tcp"
-      from_port                  = 22
-      to_port                    = 22
-      type                       = "ingress"
-      cidr_blocks                = ["10.21.0.0/16"]
-  }}
+  cluster_security_group_additional_rules = var.cluster_security_group_additional_rules
+  node_security_group_additional_rules = var.node_security_group_additional_rules
 
-  cluster_name                    = "chain-link"
+  cluster_name                    = var.cluster_name
   cluster_version                 = var.eks_version
   cluster_endpoint_private_access = true
   cluster_endpoint_public_access  = false
@@ -96,7 +65,7 @@ module "eks" {
 
   cluster_encryption_config = [{
     provider_key_arn = "${aws_kms_key.eks.arn}"
-    resources        = ["secrets"]
+    resources        = var.encryption_config_resources
   }]
 
   vpc_id     = module.vpc.vpc_id
@@ -104,12 +73,13 @@ module "eks" {
 
   eks_managed_node_groups = {
     one = {
-      instance_types = ["m6i.large"]
-      name = "chain-link-k8s-worker"
-      key_name  = "test"
+      instance_types = var.instance_types
+      name = var.nodegroup_name
+      key_name  = var.worker_key_name
       public_ip    = false
-      max_size     = 5
-      desired_size = 3
+      max_size     = var.max_size
+      desired_size = var.desired_size
+      min_size = var.min_size
       //When running openebs we need extra volumes, so this should be uncommented
       block_device_mappings = [
         # { 
@@ -158,15 +128,10 @@ module "eks" {
       #  EOT
     }
   }
-
-
-  
-  tags = {
-    Environment = "test"
-    Terraform   = "true"
-    App         = "chainlink"
-  }
+  tags = var.tags
 }
+
+
 // When running openebs this should be commented out as it isnt needed 
 module "iam_assumable_role_with_oidc" {
   source = "../modules/iam-assumable-role-with-oidc"
@@ -174,16 +139,26 @@ module "iam_assumable_role_with_oidc" {
 
   create_role = true
 
-  role_name = "AmazonEKSEBSCSIRole"
+  role_name = var.role_name_addon
 
   tags = {
-    Role = "AmazonEKSEBSCSIRole"
+    Role = var.role_name_addon
   }
 
   provider_url = module.eks.oidc_provider
-  oidc_fully_qualified_subjects = [ "system:serviceaccount:kube-system:ebs-csi-controller-sa"]
+  oidc_fully_qualified_subjects = var.oidc_fully_qualified_subjects
+}
 
-  role_policy_arns = [
-    # "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
-  ]
+
+#### Bastion
+module "bastion" {
+  source = "../modules/bastion"
+  enable_bastion = var.enable_bastion
+
+  environment = var.environment
+  project     = var.project
+  key_name   = var.bastion_key_name
+  subnet_id  = element(module.vpc.private_subnets, 0)
+  vpc_id     = module.vpc.vpc_id
+
 }

@@ -21,10 +21,10 @@ terraform {
     }
   }
   backend "s3" {
-    bucket = "cryptomanufakturer-terraform-backend"
-    region = "us-east-2"
-    key = "chain-link/test/state.json"
-    profile = "crypto"
+    bucket = "cryptomanufakturer-terraform-backend"  #This is the name of the bucket to store the state
+    region = "us-east-2" #The region of the bucket
+    key = "chain-link/test/state.json" #The key name for the object
+    profile = "crypto" #The AWS profile to use on your local for authenticating to the aws s3 api
   }
   
 }
