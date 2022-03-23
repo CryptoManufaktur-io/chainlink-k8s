@@ -3,17 +3,18 @@ This repository holds various Terraform scripts and modules that manages our inf
 
 ## CLI Requirements
 [aws cli](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) >= 2.3.2  
-[aws-iam-authenticator](https://docs.aws.amazon.com/eks/latest/userguide/install-aws-iam-authenticator.html) >= 0.5.5 (optional) 
-[terraform cli](https://www.terraform.io/downloads) >= 1.1.7
+[aws-iam-authenticator](https://docs.aws.amazon.com/eks/latest/userguide/install-aws-iam-authenticator.html) >= 0.5.5 (optional)  
+[terraform cli](https://www.terraform.io/downloads) >= 1.1.7.  
 ## How to use
-In order to replicate this for a total different environment please follow the steps below
+In order to replicate this for a total different environment please follow the steps below  
 
-1. Copy this directory into another directory and rename
-2. Create  EC2  SSH Key Pair
+1. Copy this directory into another directory and rename.  
+2. Create  EC2  SSH Key Pair.  
 This module expects an already existing ssh key pair for worker nodes and bastion host. This was done so that we dont care about the security implications of storing keys on the terraform state file. Please [see](https://docs.aws.amazon.com/ground-station/latest/ug/create-ec2-ssh-key-pair.html). Then note the name of the key(s) created as you will need to update this for the variables `bastion_key_name` and `worker_key_name`. 
-3. Configure AWS CLI. See [this](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html) to configure aws cli quickly and note your profile name
+3. Configure AWS CLI. See [this](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html) to configure aws cli quickly and note your profile name.  
 
-4. Configure the provider. Here changes are done on the provider.tf file
+4. Configure the provider. Here changes are done on the provider.tf file.   
+
 i. Change  region to the region you want to deploy changes and as well as the aws profile you created from the last step
 ```
 provider "aws" {
@@ -40,7 +41,7 @@ terraform {
   }
 }
 ```
-5. Customize the infrastructure
+5. Customize the infrastructure.   
 
 For minimal deployment see below list of variables choices to  customize the vpc and eks deployment, for extra customizations you can find link to the respective modules readme on the Modules section to find other variables.
 6. Initiliaze terraform 
@@ -52,7 +53,7 @@ If all goes well you should see below output in green
 
 `Terraform has been successfully initialized!`
 
-7. Plan changes
+7. Plan changes.  
 To  plan changes to see expected changes to your aws infrastructure, run below command
 ```
 terraform plan
@@ -61,7 +62,7 @@ You should see a long list of changes and as well as the summary of changes
 
 `Plan: 72 to add, 0 to change, 0 to destroy.`
 
-8. Apply changes
+8. Apply changes. 
 Once you are satisfied with the intended changes, you can now apply your changes by running below and follow the prompt by typing `yes`
 
 ```
